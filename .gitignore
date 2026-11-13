@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+*.OBJ
+*.EXE
+*.obj
+*.exe
+*.MAP

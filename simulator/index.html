@@ -1,0 +1,756 @@
+<!doctype html>
+<html lang="en">
+<title>8086 Bubble Sort Simulator</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta charset="utf-8">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=VT323&display=swap">
+<style>
+/* Layout: a lab-bench console. Source listing | live array + memory | CPU state,
+   then data entry, pass history and the DOS screen the real program prints.
+   Palette taken from the C8086 ceramic package: violet-grey ceramic, gold pins. */
+:root{
+  --bg:#F2F1F5; --panel:#FFFFFF; --sunk:#F7F6FA; --ink:#1C1925; --muted:#676276; --line:#DEDAE6;
+  --ceramic:#3F3358; --ceramic-ink:#F1ECF8; --gold:#A8761A; --gold-soft:#F5EAD2; --gold-ink:#6E4C0E; --gold-text:#7A5410; --on-gold:#FFFFFF;
+  --swap:#C0412C; --swap-soft:#F8E1DC; --done:#2C7A57; --done-soft:#DCEFE5; --bar:#B9B3C7;
+  --crt-bg:#0C0C10; --crt-fg:#C6C6C6; --crt-hi:#FFFFFF;
+  --f-display:"IBM Plex Sans Condensed","Arial Narrow",system-ui,sans-serif;
+  --f-body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,"SFMono-Regular",Consolas,monospace;
+  --f-crt:"VT323","IBM Plex Mono",ui-monospace,monospace;
+  --r:6px;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#14121A; --panel:#1C1924; --sunk:#17151E; --ink:#ECE9F3; --muted:#9C96AB; --line:#2E2A3A;
+  --ceramic:#2A2140; --ceramic-ink:#EDE7F7; --gold:#D8A443; --gold-soft:#3A2F17; --gold-ink:#F1CF8A; --gold-text:#D8A443; --on-gold:#1A1406;
+  --swap:#E7735F; --swap-soft:#3D2420; --done:#55BC8A; --done-soft:#17322A; --bar:#4A4459;
+  color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#14121A; --panel:#1C1924; --sunk:#17151E; --ink:#ECE9F3; --muted:#9C96AB; --line:#2E2A3A;
+  --ceramic:#2A2140; --ceramic-ink:#EDE7F7; --gold:#D8A443; --gold-soft:#3A2F17; --gold-ink:#F1CF8A; --gold-text:#D8A443; --on-gold:#1A1406;
+  --swap:#E7735F; --swap-soft:#3D2420; --done:#55BC8A; --done-soft:#17322A; --bar:#4A4459;
+  color-scheme:dark}
+
+*{box-sizing:border-box}
+html,body{background:var(--bg)}
+body{margin:0;color:var(--ink);font:14px/1.5 var(--f-body)}
+button,input,textarea,select{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+.mono{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+
+/* ---------- header band ---------- */
+.band{background:var(--ceramic);color:var(--ceramic-ink)}
+.band-in{max-width:1500px;margin:0 auto;padding-block:18px;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
+  display:flex;gap:18px;align-items:center;flex-wrap:wrap}
+.chip{position:relative;width:74px;height:40px;flex:none;border-radius:3px;
+  background:linear-gradient(#0000,#0000),var(--ceramic);border:1px solid #ffffff2a;
+  display:grid;place-items:center;font:600 13px var(--f-mono);letter-spacing:.06em;color:var(--gold)}
+.chip::before,.chip::after{content:"";position:absolute;left:6px;right:6px;height:5px;
+  background:repeating-linear-gradient(90deg,var(--gold) 0 3px,transparent 3px 7px)}
+.chip::before{top:-6px}.chip::after{bottom:-6px}
+.chip i{position:absolute;left:5px;top:50%;width:6px;height:6px;margin-top:-3px;border-radius:50%;background:#ffffff22}
+.ttl h1{margin:0;font:700 clamp(20px,2.6vw,28px)/1.1 var(--f-display);letter-spacing:.01em;text-wrap:balance}
+.ttl p{margin:4px 0 0;color:color-mix(in srgb,var(--ceramic-ink) 72%,transparent);font-size:13.5px}
+.ttl{flex:1 1 320px;min-width:0}
+.spec{display:flex;gap:6px;flex-wrap:wrap}
+.spec span{font:500 11.5px var(--f-mono);padding:3px 8px;border:1px solid #ffffff30;border-radius:999px;white-space:nowrap}
+
+/* ---------- page ---------- */
+.wrap{max-width:1500px;margin:0 auto;padding-block:18px 40px;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
+  display:flex;flex-direction:column;gap:14px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);min-width:0}
+.ph{display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex-wrap:wrap;
+  padding:10px 14px;border-bottom:1px solid var(--line)}
+.ph h2{margin:0;font:600 12px var(--f-display);letter-spacing:.09em;text-transform:uppercase;color:var(--muted)}
+.ph .aux{font-size:12px;color:var(--muted)}
+.pb{padding:12px 14px}
+
+/* ---------- data entry ---------- */
+.data-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:start}
+#dataIn{width:100%;min-height:62px;resize:vertical;padding:9px 10px;border:1px solid var(--line);border-radius:var(--r);
+  background:var(--sunk);font:13px/1.55 var(--f-mono)}
+.presets{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+.pill{border:1px solid var(--line);background:var(--panel);border-radius:999px;padding:4px 11px;font-size:12.5px;cursor:pointer}
+.pill:hover{border-color:var(--gold)}
+.pill[aria-pressed="true"]{background:var(--gold-soft);border-color:var(--gold);color:var(--gold-ink)}
+.msg{margin-top:8px;font-size:12.5px;color:var(--muted);min-height:1.5em}
+.msg.err{color:var(--swap)}
+.btn{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--line);background:var(--panel);
+  border-radius:var(--r);padding:7px 12px;cursor:pointer;font-weight:500;font-size:13px;white-space:nowrap}
+.btn:hover:not(:disabled){border-color:var(--gold)}
+.btn:disabled{opacity:.45;cursor:default}
+.btn.primary{background:var(--gold);border-color:var(--gold);color:var(--on-gold)}
+.btn kbd{font:500 10.5px var(--f-mono);padding:0 4px;border:1px solid currentColor;border-radius:3px;opacity:.6}
+.btn svg{width:14px;height:14px;fill:currentColor}
+
+/* ---------- toolbar ---------- */
+.toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding:10px 12px}
+.toolbar .sep{width:1px;align-self:stretch;background:var(--line);margin:0 4px}
+@media (max-width:820px){.toolbar .sep,.toolbar .grow{display:none}}
+.speed{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--muted)}
+.speed input{width:130px;accent-color:var(--gold)}
+#speedLbl{min-width:76px;font-family:var(--f-mono)}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
+.seg button{border:0;background:var(--panel);padding:6px 10px;font:500 12.5px var(--f-mono);cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--ink);color:var(--panel)}
+.seg-l{font-size:12.5px;color:var(--muted);margin-right:4px}
+.grow{flex:1}
+
+/* ---------- main grid ---------- */
+.grid{display:grid;gap:14px;grid-template-columns:minmax(0,1fr);
+  grid-template-areas:"viz" "src" "regs" "mem"}
+@media (min-width:820px){.grid{grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);
+  grid-template-areas:"viz viz" "src regs" "mem mem"}}
+@media (min-width:1240px){.grid{grid-template-columns:minmax(0,1.1fr) minmax(0,1.55fr) minmax(0,.82fr);
+  grid-template-areas:"src viz regs" "src mem regs"}}
+.a-src{grid-area:src}.a-viz{grid-area:viz}.a-regs{grid-area:regs}.a-mem{grid-area:mem}
+.a-src,.a-regs{align-self:start}
+
+/* ---------- listing ---------- */
+.a-src{container-type:inline-size}
+.lst{overflow-x:auto;font:12.5px/1 var(--f-mono)}
+@container (max-width:620px){.lst .cm{display:none}.lst table{min-width:360px}}
+.lst table{border-collapse:collapse;width:100%;min-width:430px}
+.lst td{padding:4px 6px;white-space:nowrap;vertical-align:middle;height:23px}
+.lst tr.x{cursor:pointer}
+.lst .g{width:22px;padding-left:10px}
+.lst .dot{display:block;width:9px;height:9px;border-radius:50%;border:1px solid transparent}
+.lst tr.x:hover .dot{border-color:var(--swap)}
+.lst tr.bp .dot{background:var(--swap);border-color:var(--swap)}
+.lst .ad{color:var(--muted)}
+.lst .by{color:var(--muted);font-size:11.5px}
+.lst .lb{color:var(--gold-text);font-weight:600}
+.lst .mn{font-weight:600}
+.lst .cm{color:var(--muted);font-family:var(--f-body);font-size:12px}
+.lst tr.dir td{color:var(--muted);font-style:italic}
+.lst tr.cur td{background:var(--gold-soft)}
+.lst tr.cur .g{box-shadow:inset 3px 0 0 var(--gold)}
+.lst tr.prev td{background:var(--sunk)}
+.lst tr.flash .mn{color:var(--swap)}
+.lst tr.done td{background:var(--done-soft)}
+
+/* ---------- visualiser ---------- */
+.viz{padding:14px 14px 10px}
+.bars{display:grid;grid-template-columns:repeat(20,minmax(0,1fr));gap:4px;height:240px;align-items:end;position:relative}
+.col{display:flex;flex-direction:column;justify-content:flex-end;height:100%;min-width:0;position:relative}
+.bar{background:var(--bar);border-radius:2px 2px 0 0;min-height:2px;flex:none;transition:height .14s ease,background-color .14s}
+.col.fin .bar{background:var(--done)}
+.col.pair .bar{background:var(--gold)}
+.col.swap .bar{background:var(--swap)}
+.col .v{font:500 10.5px/1 var(--f-mono);color:var(--muted);margin:0 auto 4px;white-space:nowrap;writing-mode:vertical-rl;transform:rotate(180deg)}
+.col.pair .v,.col.swap .v{color:var(--ink);font-weight:600}
+.axis{display:grid;grid-template-columns:repeat(20,minmax(0,1fr));gap:4px;margin-top:5px}
+.axis div{font:10px var(--f-mono);text-align:center;color:var(--muted)}
+.ptr{display:grid;grid-template-columns:repeat(20,minmax(0,1fr));gap:4px;height:30px;margin-top:2px}
+.ptr div{font:600 10.5px/1 var(--f-mono);text-align:center;color:var(--gold-text);padding-top:3px;white-space:nowrap}
+.ptr div.on::before{content:"▲";display:block;font-size:9px;margin-bottom:2px}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--muted);margin-top:4px}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.legend i{width:10px;height:10px;border-radius:2px;display:inline-block}
+.narr{margin:12px 14px 14px;padding:11px 13px;border-radius:var(--r);background:var(--sunk);border:1px solid var(--line);
+  display:grid;grid-template-columns:auto minmax(0,1fr);gap:4px 12px;align-items:baseline}
+.narr .k{font:600 11px var(--f-display);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.narr .ins{font:600 13px var(--f-mono)}
+.narr p{margin:0;grid-column:1/-1;font-size:13.5px;max-width:80ch}
+.warn{margin:0 14px 14px;padding:10px 12px;border-radius:var(--r);background:var(--swap-soft);color:var(--ink);
+  border:1px solid color-mix(in srgb,var(--swap) 40%,transparent);font-size:13px}
+@media (max-width:640px){.col .v{display:none}.axis div:nth-child(even){visibility:hidden}.bars{height:170px}}
+
+/* ---------- memory ---------- */
+.memw{overflow-x:auto}
+.mem{font:12.5px/1 var(--f-mono);border-collapse:collapse;min-width:560px;margin:2px 0}
+.mem td,.mem th{padding:5px 4px;text-align:center}
+.mem th{color:var(--muted);font-weight:500;font-size:11px}
+.mem td.ofs{color:var(--muted);text-align:left;padding-right:10px}
+.mem td.b{border-radius:3px}
+.mem td.arr{color:var(--ink)}
+.mem td.var{color:var(--gold-text);font-weight:600}
+.mem td.msg{color:var(--muted)}
+.mem td.rd{outline:1.5px solid var(--gold);outline-offset:-1.5px}
+.mem td.wr{background:var(--swap-soft);outline:1.5px solid var(--swap);outline-offset:-1.5px}
+.mem td.asc{color:var(--muted);text-align:left;padding-left:12px;white-space:pre}
+.memnote{font-size:12.5px;color:var(--muted);margin:8px 0 0}
+.memnote b{color:var(--ink);font-family:var(--f-mono);font-weight:500}
+
+/* ---------- registers ---------- */
+.rg{display:grid;grid-template-columns:auto 1fr;gap:3px 10px;font:13px/1.35 var(--f-mono);align-items:center}
+.rg .n{color:var(--muted);font-weight:500}
+.rg .val{display:flex;gap:10px;align-items:baseline;padding:2px 6px;border-radius:4px;transition:background-color .3s}
+.rg .val b{font-weight:600;font-size:14px;letter-spacing:.02em}
+.rg .val small{color:var(--muted);font-size:11.5px}
+.rg .val.chg{background:var(--gold-soft)}
+.sub{font:600 11px var(--f-display);letter-spacing:.09em;text-transform:uppercase;color:var(--muted);margin:14px 0 6px}
+.flags{display:grid;grid-template-columns:repeat(9,minmax(0,1fr));gap:4px}
+.flag{border:1px solid var(--line);border-radius:4px;text-align:center;padding:4px 0 3px;font:11px/1.2 var(--f-mono);color:var(--muted)}
+.flag b{display:block;font-size:14px;color:var(--ink);font-weight:600}
+.flag.on{background:var(--ink);border-color:var(--ink);color:var(--panel)}
+.flag.on b{color:var(--panel)}
+.flag.chg{box-shadow:0 0 0 2px var(--gold)}
+.ctr{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.ctr div{background:var(--sunk);border:1px solid var(--line);border-radius:5px;padding:7px 9px;min-width:0}
+.ctr span{display:block;font-size:11.5px;color:var(--muted)}
+.ctr b{font:600 17px var(--f-mono);font-variant-numeric:tabular-nums}
+.ctr em{font-style:normal;font-size:11.5px;color:var(--muted);font-family:var(--f-mono)}
+.stk{font:12.5px/1.6 var(--f-mono);display:grid;grid-template-columns:auto auto 1fr;gap:0 10px}
+.stk .sp{color:var(--gold-text);font-weight:600}
+.stk .m{color:var(--muted)}
+
+/* ---------- lower row ---------- */
+.lower{display:grid;gap:14px;grid-template-columns:minmax(0,1fr)}
+@media (min-width:1100px){.lower{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}}
+.histw{max-height:420px;overflow:auto}
+.hist{width:100%;border-collapse:collapse;font-size:12.5px}
+.hist th{position:sticky;top:0;background:var(--panel);text-align:left;font:600 11px var(--f-display);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);padding:8px 10px;border-bottom:1px solid var(--line)}
+.hist td{padding:6px 10px;border-bottom:1px solid var(--line);font-family:var(--f-mono);font-variant-numeric:tabular-nums;vertical-align:middle}
+.hist td.num{text-align:right}
+.spark{display:grid;grid-template-columns:repeat(20,minmax(2px,1fr));gap:1px;height:26px;align-items:end;min-width:120px}
+.spark i{background:var(--bar);display:block;border-radius:1px 1px 0 0}
+.spark i.f{background:var(--done)}
+.empty{padding:24px 14px;color:var(--muted);font-size:13px}
+
+.crt{background:var(--crt-bg);color:var(--crt-fg);border-radius:0 0 var(--r) var(--r);overflow-x:auto;padding:14px 16px}
+.crt pre{margin:0;font:19px/1.08 var(--f-crt);min-width:max-content}
+.crt .cur{animation:blink 1s steps(1) infinite;color:var(--crt-hi)}
+@keyframes blink{50%{opacity:0}}
+
+/* ---------- notes ---------- */
+.notes{display:grid;gap:14px;grid-template-columns:minmax(0,1fr)}
+@media (min-width:900px){.notes{grid-template-columns:repeat(3,minmax(0,1fr))}}
+.notes .pb p,.notes .pb li{font-size:13.5px;max-width:68ch}
+.notes .pb p{margin:0 0 8px}
+.notes ul,.notes ol{margin:0;padding-left:18px}
+.notes code{font:12.5px var(--f-mono);background:var(--sunk);padding:1px 4px;border-radius:3px}
+.cx{width:100%;border-collapse:collapse;font-size:13px}
+.cx td,.cx th{padding:5px 6px;border-bottom:1px solid var(--line);text-align:left}
+.cx th{font-weight:600;color:var(--muted);font-size:12px}
+.foot{font-size:12px;color:var(--muted);text-align:center;margin-top:6px}
+
+@media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important}}
+</style>
+
+<header class="band">
+  <div class="band-in">
+    <div class="chip" aria-hidden="true"><i></i>8086</div>
+    <div class="ttl">
+      <h1>8086 Bubble Sort Simulator</h1>
+      <p>Steps through the <span class="mono">BUBBLE_SORT</span> procedure of <span class="mono">BUBBLE.ASM</span> one instruction at a time and shows what the CPU does.</p>
+    </div>
+    <div class="spec">
+      <span>20 × DW</span><span>unsigned 16-bit</span><span>ascending</span><span>5 MHz clock</span>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <section class="panel" aria-labelledby="dataH">
+    <div class="ph"><h2 id="dataH">Input array · 20 words</h2><span class="aux">Decimal (4660), hex with H suffix (1234H) or 0x prefix (0x1234). Range 0 – 65535.</span></div>
+    <div class="pb">
+      <div class="data-row">
+        <textarea id="dataIn" spellcheck="false" aria-label="Twenty numbers, separated by spaces or commas"></textarea>
+        <button class="btn primary" id="loadBtn" type="button">Load into ARR</button>
+      </div>
+      <div class="presets" id="presets" role="group" aria-label="Example data">
+        <button class="pill" type="button" data-p="sample" aria-pressed="true">Assignment data</button>
+        <button class="pill" type="button" data-p="random">Random</button>
+        <button class="pill" type="button" data-p="reverse">Reverse order (worst case)</button>
+        <button class="pill" type="button" data-p="sorted">Already sorted (best case)</button>
+        <button class="pill" type="button" data-p="nearly">Nearly sorted</button>
+        <button class="pill" type="button" data-p="dups">Many duplicates</button>
+        <button class="pill" type="button" data-p="trap">Above / below 8000H</button>
+      </div>
+      <div class="msg" id="dataMsg" role="status"></div>
+    </div>
+  </section>
+
+  <section class="panel toolbar" aria-label="Simulation controls">
+    <button class="btn" id="bReset" type="button" title="Reset (R)"><svg viewBox="0 0 16 16"><path d="M3 2h2v12H3zM6 8l7-6v12z"/></svg>Reset <kbd>R</kbd></button>
+    <button class="btn" id="bBack" type="button" title="Step back (←)"><svg viewBox="0 0 16 16"><path d="M11 2v12L4 8z"/></svg>Back <kbd>←</kbd></button>
+    <button class="btn" id="bStep" type="button" title="Execute one instruction (→)"><svg viewBox="0 0 16 16"><path d="M5 2v12l7-6z"/></svg>Step <kbd>→</kbd></button>
+    <button class="btn" id="bCmp" type="button" title="Run to the next CMP (C)">Next compare <kbd>C</kbd></button>
+    <button class="btn" id="bPass" type="button" title="Run to the end of this pass (P)">Finish pass <kbd>P</kbd></button>
+    <span class="sep" aria-hidden="true"></span>
+    <button class="btn primary" id="bRun" type="button" title="Run / pause (Space)"><svg viewBox="0 0 16 16" id="runIco"><path d="M4 2v12l10-6z"/></svg><span id="runTxt">Run</span> <kbd>Space</kbd></button>
+    <button class="btn" id="bEnd" type="button" title="Run to the end (E)">Run to end <kbd>E</kbd></button>
+    <label class="speed" for="speed">Speed <input type="range" id="speed" min="0" max="100" value="38"><span id="speedLbl"></span></label>
+    <span class="grow"></span>
+    <span class="seg-l" id="cmpL">Jump after CMP</span>
+    <div class="seg" role="group" aria-labelledby="cmpL">
+      <button type="button" id="mU" aria-pressed="true" title="Unsigned comparison (correct)">JBE</button>
+      <button type="button" id="mS" aria-pressed="false" title="Signed comparison (shows the bug)">JLE</button>
+    </div>
+  </section>
+
+  <section class="grid">
+    <div class="panel a-src">
+      <div class="ph"><h2>Source · BUBBLE_SORT</h2><span class="aux">Click a line to set a breakpoint</span></div>
+      <div class="lst"><table><tbody id="lst"></tbody></table></div>
+    </div>
+
+    <div class="panel a-viz">
+      <div class="ph"><h2>ARR in memory</h2><span class="aux" id="vizAux"></span></div>
+      <div class="viz">
+        <div class="bars" id="bars"></div>
+        <div class="axis" id="axis"></div>
+        <div class="ptr" id="ptr"></div>
+        <div class="legend">
+          <span><i style="background:var(--gold)"></i>ARR[j], ARR[j+1] being compared</span>
+          <span><i style="background:var(--swap)"></i>written by the swap</span>
+          <span><i style="background:var(--done)"></i>in its final place</span>
+          <span class="seg" role="group" aria-label="Number format" style="margin-left:auto">
+            <button type="button" id="fD" aria-pressed="true">DEC</button><button type="button" id="fH" aria-pressed="false">HEX</button>
+          </span>
+        </div>
+      </div>
+      <div class="narr" aria-live="polite">
+        <span class="k" id="nK">Ready</span><span class="ins" id="nI"></span>
+        <p id="nP"></p>
+      </div>
+      <div class="warn" id="warn" hidden></div>
+    </div>
+
+    <div class="panel a-regs">
+      <div class="ph"><h2>CPU state</h2><span class="aux" id="ipAux"></span></div>
+      <div class="pb">
+        <div class="rg" id="regs"></div>
+        <div class="sub">Flags</div>
+        <div class="flags" id="flags"></div>
+        <div class="sub">Counters</div>
+        <div class="ctr" id="ctr"></div>
+        <div class="sub">Stack · SS:SP</div>
+        <div class="stk" id="stk"></div>
+      </div>
+    </div>
+
+    <div class="panel a-mem">
+      <div class="ph"><h2>Memory dump · DS:0000</h2><span class="aux">Gold outline = read · red = written by the last instruction</span></div>
+      <div class="pb">
+        <div class="memw"><table class="mem" id="mem"></table></div>
+        <p class="memnote" id="memNote"></p>
+      </div>
+    </div>
+  </section>
+
+  <section class="lower">
+    <div class="panel">
+      <div class="ph"><h2>Pass history</h2><span class="aux" id="histAux">ARR after each outer-loop pass</span></div>
+      <div class="histw" id="histW"></div>
+    </div>
+    <div class="panel">
+      <div class="ph"><h2>DOS screen</h2><span class="aux">What BUBBLE.EXE prints for this data</span></div>
+      <div class="crt"><pre id="dos"></pre></div>
+    </div>
+  </section>
+
+  <section class="notes">
+    <div class="panel">
+      <div class="ph"><h2>Algorithm</h2></div>
+      <div class="pb">
+        <ol>
+          <li>CX = N − 1 = 19, the number of comparisons in the first pass.</li>
+          <li>Start a pass: SI points at ARR[0], DX = CX, swap flag BL = 0.</li>
+          <li>Compare ARR[j] with ARR[j+1]. If ARR[j] is larger, exchange them and set BL = 1.</li>
+          <li>SI += 2 (each element is one word = 2 bytes). Repeat until DX = 0.</li>
+          <li>If BL = 0 the array is already sorted, so stop early.</li>
+          <li>Otherwise LOOP: CX − 1. The largest unsorted value is now at the end, so the next pass is one comparison shorter.</li>
+        </ol>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="ph"><h2>Why JBE and not JLE</h2></div>
+      <div class="pb">
+        <p><code>CMP AX,[SI+2]</code> subtracts and sets the flags. <code>JBE</code> jumps when CF = 1 or ZF = 1, which is the <b>unsigned</b> "below or equal" test.</p>
+        <p><code>JLE</code> tests ZF = 1 or SF ≠ OF, the <b>signed</b> test. It reads 8000H – FFFFH as −32768 to −1, so 65535 would be sorted before 0.</p>
+        <p>Switch the toolbar to <b>JLE</b> and run the assignment data to see the wrong order and the program's own check fail.</p>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="ph"><h2>Cost for N = 20</h2></div>
+      <div class="pb">
+        <table class="cx">
+          <tr><th>Case</th><th>Passes</th><th>Compares</th><th>Swaps</th></tr>
+          <tr><td>Best (sorted)</td><td class="mono">1</td><td class="mono">19</td><td class="mono">0</td></tr>
+          <tr><td>Worst (reversed)</td><td class="mono">19</td><td class="mono">190</td><td class="mono">190</td></tr>
+          <tr><td>Formula, worst</td><td class="mono">N−1</td><td class="mono">N(N−1)/2</td><td class="mono">N(N−1)/2</td></tr>
+        </table>
+        <p style="margin-top:10px">Time complexity is O(n²) in the worst and average case and O(n) in the best case because of the early exit. Space is O(1): the sort happens in place in ARR.</p>
+      </div>
+    </div>
+  </section>
+  <p class="foot">Clock cycles use the instruction timings in the Intel 8086 manual (base + effective-address time). Offsets and machine code are from the assembled listing of BUBBLE.ASM.</p>
+</main>
+
+<script>
+(() => {
+"use strict";
+const N = 20, VPASS = 0x28, VCOMP = 0x2A, VSWAP = 0x2C, PROC_IP = 0x63, RET_IP = 0x47, CLOCK_MHZ = 5;
+const SAMPLE = [0xF2A1,0x0034,0x9C40,0x1234,0xFFFF,0x0000,0x7D00,0x2710,0x03E8,0x8000,
+                0xABCD,0x0001,0x4E20,0xC350,0x0063,0x5A5A,0x1388,0xEA60,0x00FF,0x3039];
+const $ = s => document.querySelector(s);
+const h4 = v => v.toString(16).toUpperCase().padStart(4, "0");
+const h2 = v => v.toString(16).toUpperCase().padStart(2, "0");
+const fmtH = v => h4(v) + "h";
+
+let signed = false, fmt = "dec";
+
+/* ---------------- CPU helpers ---------------- */
+const rw = (s, a) => s.mem[a] | (s.mem[a + 1] << 8);
+const ww = (s, a, v) => { s.mem[a] = v & 255; s.mem[a + 1] = (v >> 8) & 255; };
+const parity = b => { b &= 255; let c = 0; while (b) { c += b & 1; b >>= 1; } return c % 2 ? 0 : 1; };
+const szp16 = (f, r) => { f.ZF = +(r === 0); f.SF = (r >> 15) & 1; f.PF = parity(r); };
+const szp8 = (f, r) => { f.ZF = +(r === 0); f.SF = (r >> 7) & 1; f.PF = parity(r); };
+function sub16(f, a, b) { const r = (a - b) & 0xFFFF; f.CF = +(a < b); f.OF = +!!((a ^ b) & (a ^ r) & 0x8000); f.AF = +!!((a ^ b ^ r) & 0x10); szp16(f, r); return r; }
+function add16(f, a, b) { const r = (a + b) & 0xFFFF; f.CF = +(a + b > 0xFFFF); f.OF = +!!(~(a ^ b) & (a ^ r) & 0x8000); f.AF = +!!((a ^ b ^ r) & 0x10); szp16(f, r); return r; }
+function inc16(f, a) { const r = (a + 1) & 0xFFFF; f.OF = +(a === 0x7FFF); f.AF = +((a & 15) === 15); szp16(f, r); return r; }
+function dec16(f, a) { const r = (a - 1) & 0xFFFF; f.OF = +(a === 0x8000); f.AF = +((a & 15) === 0); szp16(f, r); return r; }
+function logic8(f, r) { f.CF = 0; f.OF = 0; f.AF = 0; szp8(f, r); }
+const BL = s => s.r.BX & 255;
+const setBL = (s, v) => { s.r.BX = (s.r.BX & 0xFF00) | (v & 255); };
+const arr = s => Array.from({ length: N }, (_, i) => rw(s, 2 * i));
+function push(s, v) { s.r.SP = (s.r.SP - 2) & 0xFFFF; s.stack[s.r.SP] = v & 255; s.stack[s.r.SP + 1] = v >> 8; }
+function pop(s) { const v = s.stack[s.r.SP] | (s.stack[s.r.SP + 1] << 8); s.r.SP = (s.r.SP + 2) & 0xFFFF; return v; }
+const passNo = s => rw(s, VPASS);
+
+/* ---------------- the program ---------------- */
+const pushI = r => ({ mn: "PUSH", op: r, b: { AX: "50", BX: "53", CX: "51", DX: "52", SI: "56" }[r], cyc: 11, c: "save caller's " + r,
+  run(s) { push(s, s.r[r]); return { stk: true, note: `PUSH ${r} saves ${fmtH(s.r[r])} on the stack. SP drops by 2 to ${fmtH(s.r.SP)}.` }; } });
+const popI = r => ({ mn: "POP", op: r, b: { AX: "58", BX: "5B", CX: "59", DX: "5A", SI: "5E" }[r], cyc: 8, c: "restore " + r,
+  run(s) { s.r[r] = pop(s); return { stk: true, note: `POP ${r} restores ${fmtH(s.r[r])}. SP rises to ${fmtH(s.r.SP)}.` }; } });
+
+const I = [
+  pushI("AX"), pushI("BX"), pushI("CX"), pushI("DX"), pushI("SI"),
+  { mn: "MOV", op: "CX, N-1", b: "B91300", cyc: 4, c: "first pass: N-1 comparisons",
+    run(s) { s.r.CX = N - 1; return { note: "CX = 0013h = 19. The first pass makes 19 comparisons and every later pass makes one fewer." }; } },
+  { lbl: "OUTER", mn: "MOV", op: "SI, OFFSET ARR", b: "BE0000", cyc: 4, c: "j = 0",
+    run(s) { s.r.SI = 0; return { note: `Pass ${passNo(s) + 1} begins. SI = 0000h, the offset of ARR[0] in the data segment.` }; } },
+  { mn: "MOV", op: "DX, CX", b: "8BD1", cyc: 2, c: "inner counter = CX",
+    run(s) { s.r.DX = s.r.CX; return { note: `DX = CX = ${s.r.CX}. The inner loop will compare ${s.r.CX} pairs in this pass.` }; } },
+  { mn: "XOR", op: "BL, BL", b: "32DB", cyc: 3, c: "swapped = 0",
+    run(s) { setBL(s, 0); logic8(s.f, 0); return { note: "BL = 0: no swap yet in this pass. XOR of a register with itself is the usual way to clear it; it also clears CF and OF and sets ZF." }; } },
+  { mn: "INC", op: "PASSES", b: "FF062800", cyc: 21, c: "count passes",
+    run(s) { const v = inc16(s.f, passNo(s)); ww(s, VPASS, v); s.pc0 = rw(s, VCOMP); s.ps0 = rw(s, VSWAP);
+      return { mr: [VPASS], mw: [VPASS], note: `PASSES (DS:0028h) = ${v}. Memory INC is a read-modify-write, so it costs 15 + 6 (EA) = 21 cycles.` }; } },
+  { lbl: "INNER", mn: "MOV", op: "AX, [SI]", b: "8B04", cyc: 13, c: "AX = ARR[j]",
+    run(s) { s.r.AX = rw(s, s.r.SI); return { mr: [s.r.SI], note: `AX = ARR[${s.r.SI >> 1}] = ${s.r.AX} (${fmtH(s.r.AX)}), read from DS:${fmtH(s.r.SI)}.` }; } },
+  { mn: "INC", op: "COMPS", b: "FF062A00", cyc: 21, c: "count comparisons",
+    run(s) { const v = inc16(s.f, rw(s, VCOMP)); ww(s, VCOMP, v); return { mr: [VCOMP], mw: [VCOMP], note: `COMPS (DS:002Ah) = ${v}.` }; } },
+  { mn: "CMP", op: "AX, [SI+2]", b: "3B4402", cyc: 18, c: "compare with ARR[j+1]",
+    run(s) { const a = s.r.AX, b = rw(s, s.r.SI + 2); sub16(s.f, a, b); const f = s.f;
+      return { mr: [s.r.SI + 2], cmp: true, note: `CMP subtracts ARR[${(s.r.SI >> 1) + 1}] from AX (${a} − ${b}) without storing the result and sets the flags: CF=${f.CF} ZF=${f.ZF} SF=${f.SF} OF=${f.OF}.` }; } },
+  { jcc: true, get mn() { return signed ? "JLE" : "JBE"; }, op: "NO_SWAP", get b() { return signed ? "7E0B" : "760B"; },
+    cyc: r => r.jump ? 16 : 4, get c() { return signed ? "signed: ARR[j] <= ARR[j+1]" : "unsigned: ARR[j] <= ARR[j+1]"; },
+    run(s) { const f = s.f, a = s.r.AX, b = rw(s, s.r.SI + 2);
+      if (!signed) {
+        const t = f.CF || f.ZF;
+        return t ? { jump: "NO_SWAP", note: `CF=${f.CF}, ZF=${f.ZF}: ${a} ≤ ${b} as unsigned numbers, so JBE jumps to NO_SWAP. The pair is already in order.` }
+                 : { note: `CF=0 and ZF=0: ${a} > ${b}, so JBE does not jump and the pair is swapped.` };
+      }
+      const t = f.ZF || (f.SF !== f.OF), sa = a > 32767 ? a - 65536 : a, sb = b > 32767 ? b - 65536 : b;
+      return t ? { jump: "NO_SWAP", note: `ZF=${f.ZF}, SF=${f.SF}, OF=${f.OF}: as signed numbers ${sa} ≤ ${sb}, so JLE jumps.${(a > b) ? " Unsigned, " + a + " > " + b + ": this is the bug." : ""}` }
+               : { note: `ZF=0 and SF=OF: as signed numbers ${sa} > ${sb}, so JLE falls through to the swap.` }; } },
+  { mn: "XCHG", op: "AX, [SI+2]", b: "874402", cyc: 26, c: "ARR[j+1] = old ARR[j]",
+    run(s) { const a = s.r.AX, b = rw(s, s.r.SI + 2); ww(s, s.r.SI + 2, a); s.r.AX = b; s.swapAt = s.r.SI >> 1;
+      return { mr: [s.r.SI + 2], mw: [s.r.SI + 2], swap: [(s.r.SI >> 1) + 1], note: `XCHG puts ${a} into ARR[${(s.r.SI >> 1) + 1}] and loads the old value ${b} into AX. For this one instruction both cells hold ${a}.` }; } },
+  { mn: "MOV", op: "[SI], AX", b: "8904", cyc: 14, c: "ARR[j] = old ARR[j+1]",
+    run(s) { ww(s, s.r.SI, s.r.AX); return { mw: [s.r.SI], swap: [s.r.SI >> 1, (s.r.SI >> 1) + 1], note: `ARR[${s.r.SI >> 1}] = ${s.r.AX}. The two values have changed places.` }; } },
+  { mn: "MOV", op: "BL, 1", b: "B301", cyc: 4, c: "swapped = 1",
+    run(s) { setBL(s, 1); return { note: "BL = 1: this pass made at least one swap, so another pass may be needed." }; } },
+  { mn: "INC", op: "SWAPS", b: "FF062C00", cyc: 21, c: "count swaps",
+    run(s) { const v = inc16(s.f, rw(s, VSWAP)); ww(s, VSWAP, v); return { mr: [VSWAP], mw: [VSWAP], note: `SWAPS (DS:002Ch) = ${v}.` }; } },
+  { lbl: "NO_SWAP", mn: "ADD", op: "SI, 2", b: "83C602", cyc: 4, c: "j = j + 1 (2 bytes)",
+    run(s) { s.r.SI = add16(s.f, s.r.SI, 2); return { note: `SI = ${fmtH(s.r.SI)}. Each element is a word, so the next element is 2 bytes further on.` }; } },
+  { mn: "DEC", op: "DX", b: "4A", cyc: 2, c: "pairs left",
+    run(s) { s.r.DX = dec16(s.f, s.r.DX); return { note: `DX = ${s.r.DX} pair${s.r.DX === 1 ? "" : "s"} left in this pass. ZF = ${s.f.ZF}.` }; } },
+  { mn: "JNZ", op: "INNER", b: "75E4", cyc: r => r.jump ? 16 : 4, c: "next pair",
+    run(s) { if (!s.f.ZF) return { jump: "INNER", note: "ZF = 0, DX is not zero: jump back to INNER for the next pair." };
+      const p = passNo(s), sw = rw(s, VSWAP) - s.ps0;
+      s.log.push({ pass: p, cx: s.r.CX, comps: rw(s, VCOMP) - s.pc0, swaps: sw, a: arr(s) });
+      s.fin = sw === 0 ? 0 : s.r.CX;
+      return { note: `ZF = 1: pass ${p} is finished after ${rw(s, VCOMP) - s.pc0} comparisons and ${sw} swaps.` + (sw ? ` The value ${rw(s, 2 * s.r.CX)} has reached its final place, ARR[${s.r.CX}].` : "") }; } },
+  { mn: "OR", op: "BL, BL", b: "0ADB", cyc: 3, c: "any swap this pass?",
+    run(s) { logic8(s.f, BL(s)); return { note: `OR BL,BL leaves BL unchanged and sets ZF = ${s.f.ZF}${s.f.ZF ? " because BL is 0: no swaps." : " because BL is 1."}` }; } },
+  { mn: "JZ", op: "SORTED", b: "7402", cyc: r => r.jump ? 16 : 4, c: "no swap -> done early",
+    run(s) { if (s.f.ZF) { s.fin = 0; const saved = 190 - rw(s, VCOMP);
+        return { jump: "SORTED", note: `No swap in pass ${passNo(s)}, so the array is already sorted. The early exit skips ${saved} comparison${saved === 1 ? "" : "s"} a plain bubble sort would still make.` }; }
+      return { note: `This pass swapped, so the array may not be sorted yet. Fall through to LOOP.` }; } },
+  { mn: "LOOP", op: "OUTER", b: "E2D3", cyc: r => r.jump ? 17 : 5, c: "CX-1, next pass",
+    run(s) { s.r.CX = (s.r.CX - 1) & 0xFFFF;
+      if (s.r.CX) return { jump: "OUTER", note: `LOOP decrements CX to ${s.r.CX} and jumps to OUTER, because CX is not zero. LOOP changes no flags.` };
+      s.fin = 0; return { note: "CX = 0, so LOOP falls through: all N−1 passes are done." }; } },
+  { lbl: "SORTED", ...popI("SI") }, popI("DX"), popI("CX"), popI("BX"), popI("AX"),
+  { mn: "RET", op: "", b: "C3", cyc: 8, c: "back to MAIN",
+    run(s) { const ip = pop(s); s.halted = true; s.fin = 0; return { stk: true, ret: ip, note: `RET pops ${fmtH(ip)} into IP and returns to MAIN, which prints the sorted array. Sorting is complete.` }; } },
+];
+let ip = PROC_IP; const LBL = {};
+I.forEach((x, i) => { x.ip = ip; ip += (typeof x.b === "string" ? x.b : "7E0B").length / 2; if (x.lbl) LBL[x.lbl] = i; });
+
+/* ---------------- state ---------------- */
+let data = SAMPLE.slice(), S, hist = [], bps = new Set(), running = false;
+function fresh(d) {
+  const mem = new Array(48).fill(0); d.forEach((v, i) => { mem[2 * i] = v & 255; mem[2 * i + 1] = v >> 8; });
+  mem[0x2E] = 0x20; mem[0x2F] = 0x3D;
+  const stack = new Array(256).fill(0); stack[0xFE] = RET_IP; stack[0xFF] = 0;
+  return { r: { AX: 0, BX: 0, CX: 0, DX: 0, SI: 0, DI: 0, BP: 0, SP: 0xFE, IP: PROC_IP },
+    f: { OF: 0, DF: 0, IF: 1, TF: 0, SF: 0, ZF: 0, AF: 0, PF: 0, CF: 0 },
+    mem, stack, pc: 0, cyc: 0, n: 0, halted: false, pc0: 0, ps0: 0, fin: N, log: [], last: null, orig: d.slice() };
+}
+const clone = s => JSON.parse(JSON.stringify(s));
+function step() {
+  if (S.halted) return false;
+  hist.push(clone(S));
+  if (hist.length > 30000) hist.shift();
+  const i = S.pc, ins = I[i], res = ins.run(S) || {};
+  S.cyc += typeof ins.cyc === "function" ? ins.cyc(res) : ins.cyc;
+  S.n++;
+  S.pc = res.jump ? LBL[res.jump] : i + 1;
+  S.r.IP = S.halted ? res.ret : I[S.pc].ip;
+  S.last = { i, note: res.note, mr: res.mr || [], mw: res.mw || [], swap: res.swap || [], cmp: !!res.cmp, jump: !!res.jump, stk: !!res.stk };
+  return true;
+}
+function runUntil(pred, limit = 100000) {
+  stop(); let k = 0;
+  while (k++ < limit && step()) { if (pred()) break; if (bps.has(S.pc)) break; }
+  render();
+}
+
+/* ---------------- listing ---------------- */
+const lstEl = $("#lst");
+function buildListing() {
+  const row = (cls, cells) => `<tr class="${cls}">${cells}</tr>`;
+  let h = row("dir", `<td class="g"></td><td class="ad">0063</td><td></td><td colspan="3">BUBBLE_SORT PROC</td>`);
+  I.forEach((x, i) => {
+    h += `<tr class="x" data-i="${i}" title="${x.c}"><td class="g"><span class="dot"></span></td><td class="ad">${h4(x.ip)}</td><td class="by">${x.b}</td>`
+      + `<td class="lb">${x.lbl ? x.lbl + ":" : ""}</td><td><span class="mn">${x.mn}</span> ${x.op}</td><td class="cm">; ${x.c}</td></tr>`;
+  });
+  h += row("dir", `<td class="g"></td><td class="ad"></td><td></td><td colspan="3">BUBBLE_SORT ENDP</td>`);
+  lstEl.innerHTML = h;
+  lstEl.querySelectorAll("tr.x").forEach(tr => tr.addEventListener("click", () => {
+    const i = +tr.dataset.i; bps.has(i) ? bps.delete(i) : bps.add(i); tr.classList.toggle("bp", bps.has(i));
+  }));
+  bps.forEach(i => lstEl.querySelector(`tr[data-i="${i}"]`).classList.add("bp"));
+}
+const rows = () => lstEl.querySelectorAll("tr.x");
+
+/* ---------------- static scaffolding ---------------- */
+const barsEl = $("#bars"), axisEl = $("#axis"), ptrEl = $("#ptr");
+barsEl.innerHTML = Array.from({ length: N }, () => `<div class="col"><div class="v"></div><div class="bar"></div></div>`).join("");
+axisEl.innerHTML = Array.from({ length: N }, (_, i) => `<div>${i}</div>`).join("");
+ptrEl.innerHTML = Array.from({ length: N }, () => `<div></div>`).join("");
+const STK_LBL = { 0xFE: "return to MAIN", 0xFC: "saved AX", 0xFA: "saved BX", 0xF8: "saved CX", 0xF6: "saved DX", 0xF4: "saved SI" };
+const REGS = ["AX", "BX", "CX", "DX", "SI", "DI", "BP", "SP", "IP"];
+$("#regs").innerHTML = REGS.map(r => `<span class="n">${r}</span><span class="val" id="r${r}"></span>`).join("");
+const FL = ["OF", "DF", "IF", "TF", "SF", "ZF", "AF", "PF", "CF"];
+$("#flags").innerHTML = FL.map(f => `<div class="flag" id="f${f}">${f}<b>0</b></div>`).join("");
+
+/* ---------------- render ---------------- */
+function render() {
+  const prev = hist[hist.length - 1], L = S.last, a = arr(S);
+  // listing
+  rows().forEach((tr, i) => {
+    tr.classList.toggle("cur", !S.halted && i === S.pc);
+    tr.classList.toggle("prev", !!L && i === L.i && !(i === S.pc && !S.halted));
+    tr.classList.toggle("done", S.halted && i === I.length - 1);
+  });
+  // bars
+  const inLoop = !S.halted && S.n > 0 && S.pc >= LBL.INNER && S.pc <= LBL.NO_SWAP && S.r.DX > 0;
+  const j = S.r.SI >> 1, swapSet = new Set(L ? L.swap : []);
+  barsEl.querySelectorAll(".col").forEach((c, i) => {
+    const v = a[i];
+    c.querySelector(".bar").style.height = (1 + v / 65535 * 76) + "%";
+    c.querySelector(".v").textContent = fmt === "dec" ? v : h4(v);
+    c.classList.toggle("fin", i >= S.fin);
+    c.classList.toggle("swap", swapSet.has(i));
+    c.classList.toggle("pair", inLoop && !swapSet.has(i) && (i === j || i === j + 1));
+    c.title = `ARR[${i}] = ${v} = ${fmtH(v)} at DS:${fmtH(2 * i)}`;
+  });
+  ptrEl.querySelectorAll("div").forEach((d, i) => {
+    let t = ""; if (inLoop) { if (i === j) t = "SI"; else if (i === j + 1) t = "SI+2"; }
+    d.textContent = t; d.classList.toggle("on", !!t);
+  });
+  $("#vizAux").textContent = S.halted ? "Sorted" : S.n === 0 ? "Before the first instruction" : (passNo(S) ? `Pass ${passNo(S)}` : "Saving registers") + ` · CX = ${S.r.CX}`;
+  // narration
+  if (!L) { $("#nK").textContent = "Ready"; $("#nI").textContent = "";
+    $("#nP").textContent = `MAIN has called BUBBLE_SORT; the return address 0047h is on the stack. Press Step to execute PUSH AX at CS:0063h, or Run to watch the whole sort.`; }
+  else { const x = I[L.i]; $("#nK").textContent = `Step ${S.n}`; $("#nI").textContent = `${h4(x.ip)}  ${x.mn} ${x.op}`; $("#nP").textContent = L.note; }
+  // signed warning
+  const w = $("#warn");
+  if (S.halted && signed) { const ok = a.every((v, i) => i === 0 || a[i - 1] <= v);
+    w.hidden = false; w.textContent = ok ? "JLE gave the right order here only because no value is 8000H or above. Try the assignment data."
+      : "Wrong order. JLE compared the numbers as signed, so values from 8000H to FFFFH counted as negative and were moved to the front. The program's own unsigned check reports the error on the DOS screen."; }
+  else w.hidden = true;
+  // registers
+  REGS.forEach(r => {
+    const v = S.r[r], el = $("#r" + r);
+    let sub = "";
+    if ("ABCD".includes(r[0]) && r[1] === "X") sub = `<small>${r[0]}H ${h2(v >> 8)}  ${r[0]}L ${h2(v & 255)}</small><small>${v}</small>`;
+    else if (r === "SI") sub = `<small>→ ARR[${v >> 1}]</small>`;
+    else if (r === "IP") sub = `<small>${S.halted ? "MAIN" : "next instruction"}</small>`;
+    else if (r === "SP") sub = `<small>SS:${h4(v)}</small>`;
+    el.innerHTML = `<b>${h4(v)}</b>${sub}`;
+    el.classList.toggle("chg", !!prev && prev.r[r] !== v && r !== "IP");
+  });
+  $("#ipAux").textContent = S.halted ? "Returned to MAIN" : `CS:${h4(S.r.IP)}`;
+  FL.forEach(k => { const el = $("#f" + k); el.querySelector("b").textContent = S.f[k];
+    el.classList.toggle("on", !!S.f[k]); el.classList.toggle("chg", !!prev && prev.f[k] !== S.f[k]); });
+  // counters
+  const us = S.cyc / CLOCK_MHZ;
+  $("#ctr").innerHTML = [
+    ["Passes", passNo(S), "DS:0028h"], ["Comparisons", rw(S, VCOMP), "max 190"],
+    ["Swaps", rw(S, VSWAP), "DS:002Ch"], ["Instructions", S.n, ""],
+    ["Clock cycles", S.cyc.toLocaleString("en-US"), ""], ["Time at 5 MHz", us < 1000 ? us.toFixed(1) + " µs" : (us / 1000).toFixed(3) + " ms", ""],
+  ].map(([k, v, e]) => `<div><span>${k}</span><b>${v}</b> ${e ? `<em>${e}</em>` : ""}</div>`).join("");
+  // stack
+  let st = "";
+  for (let p = 0xF4; p <= 0xFE; p += 2) {
+    const v = S.stack[p] | (S.stack[p + 1] << 8), live = p >= S.r.SP;
+    const what = live ? STK_LBL[p] : "";
+    st += `<span class="${p === S.r.SP ? "sp" : "m"}">${p === S.r.SP ? "SP→" : ""}</span><span class="${live ? "" : "m"}">${h4(p)}: ${live ? h4(v) : "····"}</span><span class="m">${what}</span>`;
+  }
+  $("#stk").innerHTML = st;
+  // memory
+  const rd = new Set(), wr = new Set();
+  if (L) { L.mr.forEach(x => { rd.add(x); rd.add(x + 1); }); L.mw.forEach(x => { wr.add(x); wr.add(x + 1); }); }
+  let m = `<tr><th></th>${Array.from({ length: 16 }, (_, i) => `<th>${h2(i).slice(1)}</th>`).join("")}<th></th></tr>`;
+  for (let r = 0; r < 48; r += 16) {
+    m += `<tr><td class="ofs">DS:${h4(r)}</td>`; let asc = "";
+    for (let c = 0; c < 16; c++) {
+      const ad = r + c, v = S.mem[ad], cls = ad < 40 ? "arr" : ad < 46 ? "var" : "msg";
+      m += `<td class="b ${cls}${wr.has(ad) ? " wr" : rd.has(ad) ? " rd" : ""}" title="DS:${h4(ad)}${ad < 40 ? " · ARR[" + (ad >> 1) + "] " + (ad & 1 ? "high" : "low") + " byte" : ad < 46 ? " · " + ["PASSES", "COMPS", "SWAPS"][(ad - 40) >> 1] : " · MSG_HEAD"}">${h2(v)}</td>`;
+      asc += v >= 32 && v < 127 ? String.fromCharCode(v) : ".";
+    }
+    m += `<td class="asc">${asc.replace(/&/g, "&amp;").replace(/</g, "&lt;")}</td></tr>`;
+  }
+  $("#mem").innerHTML = m;
+  $("#memNote").innerHTML = `The 8086 is little-endian: ARR[0] = <b>${fmtH(a[0])}</b> is stored as <b>${h2(a[0] & 255)} ${h2(a[0] >> 8)}</b>, low byte first. ARR fills DS:0000h–0027h; PASSES, COMPS and SWAPS follow at 0028h, 002Ah and 002Ch.`;
+  // history
+  renderHistory();
+  renderDos(a);
+  // buttons
+  $("#bBack").disabled = hist.length === 0;
+  ["#bStep", "#bCmp", "#bPass", "#bEnd"].forEach(id => $(id).disabled = S.halted);
+  $("#bRun").disabled = S.halted && !running;
+}
+let histKey = "";
+function renderHistory() {
+  const key = S.log.length + ":" + S.orig.join(",");
+  if (key === histKey) return; histKey = key;
+  const w = $("#histW");
+  if (!S.log.length) { w.innerHTML = `<div class="empty">Each finished pass adds a row here: the array after the pass, with the values already in their final places in green. Use Finish pass to fill it one pass at a time.</div>`; $("#histAux").textContent = "ARR after each outer-loop pass"; return; }
+  const sp = (vals, fin) => `<div class="spark">${vals.map((v, i) => `<i class="${i >= fin ? "f" : ""}" style="height:${4 + v / 65535 * 96}%" title="ARR[${i}] = ${v}"></i>`).join("")}</div>`;
+  let h = `<table class="hist"><thead><tr><th>Pass</th><th style="text-align:right">CX</th><th style="text-align:right">Cmp</th><th style="text-align:right">Swaps</th><th>ARR after the pass</th></tr></thead><tbody>`;
+  h += `<tr><td>start</td><td class="num">–</td><td class="num">–</td><td class="num">–</td><td>${sp(S.orig, N)}</td></tr>`;
+  S.log.forEach(e => { h += `<tr><td>${e.pass}</td><td class="num">${e.cx}</td><td class="num">${e.comps}</td><td class="num">${e.swaps}</td><td>${sp(e.a, e.swaps ? e.cx : 0)}</td></tr>`; });
+  w.innerHTML = h + "</tbody></table>";
+  $("#histAux").textContent = `${S.log.length} pass${S.log.length === 1 ? "" : "es"} so far`;
+}
+function block(v) {
+  const d5 = x => String(x).padStart(5, " "), rowsOf = f => [v.slice(0, 10), v.slice(10)].map(r => r.map(f).join("")).join("\n        ");
+  return `   DEC :${rowsOf(x => " " + d5(x))}\n   HEX :${rowsOf(x => " " + h4(x) + "H")}`;
+}
+function renderDos(a) {
+  const d5 = x => String(x).padStart(5, " ");
+  let t = ` ==============================================================\n   BUBBLE SORT  :  20 UNSIGNED 16-BIT NUMBERS  (ASCENDING)\n   Intel 8086 Assembly                         MASM / TASM\n ==============================================================\n\n  BEFORE SORTING\n${block(S.orig)}`;
+  let tail;
+  if (S.halted) {
+    const ok = a.every((v, i) => i === 0 || a[i - 1] <= v);
+    t += `\n\n  AFTER SORTING (ASCENDING)\n${block(a)}\n\n  STATISTICS\n   Passes       : ${d5(passNo(S))}\n   Comparisons  : ${d5(rw(S, VCOMP))}\n   Swaps        : ${d5(rw(S, VSWAP))}\n   Verification : ${ok ? "array is in ascending order" : "ERROR - array is NOT sorted"}\n\n  Press any key to exit...`;
+  }
+  $("#dos").innerHTML = t.replace(/&/g, "&amp;").replace(/</g, "&lt;") + `<span class="cur">_</span>`;
+}
+
+/* ---------------- run loop ---------------- */
+const speedEl = $("#speed");
+const ips = () => +speedEl.value >= 100 ? Infinity : Math.max(1, Math.round(Math.pow(10, speedEl.value / 100 * 3)));
+const showSpeed = () => { const v = ips(); $("#speedLbl").textContent = v === Infinity ? "max" : v + " instr/s"; };
+speedEl.addEventListener("input", showSpeed); showSpeed();
+let acc = 0, lastT = 0;
+function frame(t) {
+  if (!running) return;
+  const dt = Math.min(100, t - lastT); lastT = t;
+  const v = ips(); let n;
+  if (v === Infinity) n = 60; else { acc += dt * v / 1000; n = Math.floor(acc); acc -= n; }
+  while (n-- > 0) { if (!step()) { stop(); break; } if (bps.has(S.pc)) { stop(); break; } }
+  render();
+  if (running) requestAnimationFrame(frame);
+}
+function start() { if (S.halted) return; running = true; acc = 1; lastT = performance.now(); setRunUI(); requestAnimationFrame(frame); }
+function stop() { running = false; setRunUI(); }
+function setRunUI() {
+  $("#runTxt").textContent = running ? "Pause" : "Run";
+  $("#runIco").innerHTML = running ? '<path d="M3 2h4v12H3zM9 2h4v12H9z"/>' : '<path d="M4 2v12l10-6z"/>';
+  document.body.classList.toggle("fast", running);
+}
+
+/* ---------------- controls ---------------- */
+function reset() { stop(); S = fresh(data); hist = []; histKey = ""; render(); }
+$("#bReset").onclick = reset;
+$("#bBack").onclick = () => { stop(); if (hist.length) { S = hist.pop(); render(); } };
+$("#bStep").onclick = () => { stop(); step(); render(); };
+$("#bCmp").onclick = () => runUntil(() => S.last && S.last.cmp);
+$("#bPass").onclick = () => runUntil(() => S.last && (I[S.last.i].mn === "JNZ" && !S.last.jump));
+$("#bEnd").onclick = () => { stop(); while (step()); render(); };
+$("#bRun").onclick = () => running ? stop() : start();
+function setSigned(v) { signed = v; $("#mU").setAttribute("aria-pressed", !v); $("#mS").setAttribute("aria-pressed", v); buildListing(); reset(); }
+$("#mU").onclick = () => setSigned(false); $("#mS").onclick = () => setSigned(true);
+function setFmt(v) { fmt = v; $("#fD").setAttribute("aria-pressed", v === "dec"); $("#fH").setAttribute("aria-pressed", v === "hex"); render(); }
+$("#fD").onclick = () => setFmt("dec"); $("#fH").onclick = () => setFmt("hex");
+document.addEventListener("keydown", e => {
+  if (e.target.closest("textarea,input") || e.ctrlKey || e.metaKey || e.altKey) return;
+  const k = e.key;
+  if (k === " ") { e.preventDefault(); $("#bRun").click(); }
+  else if (k === "ArrowRight") { e.preventDefault(); $("#bStep").click(); }
+  else if (k === "ArrowLeft") { e.preventDefault(); $("#bBack").click(); }
+  else if (k === "r" || k === "R") reset();
+  else if (k === "c" || k === "C") $("#bCmp").click();
+  else if (k === "p" || k === "P") $("#bPass").click();
+  else if (k === "e" || k === "E") $("#bEnd").click();
+});
+
+/* ---------------- data entry ---------------- */
+const rnd = n => Math.floor(Math.random() * n);
+const PRESETS = {
+  sample: () => SAMPLE.slice(),
+  random: () => Array.from({ length: N }, () => rnd(65536)),
+  reverse: () => Array.from({ length: N }, () => rnd(65536)).sort((x, y) => y - x),
+  sorted: () => Array.from({ length: N }, () => rnd(65536)).sort((x, y) => x - y),
+  nearly: () => { const v = Array.from({ length: N }, () => rnd(65536)).sort((x, y) => x - y);
+    for (let k = 0; k < 3; k++) { const i = rnd(N - 1); [v[i], v[i + 1]] = [v[i + 1], v[i]]; } return v; },
+  dups: () => { const p = [7, 300, 4096, 65535, 0]; return Array.from({ length: N }, () => p[rnd(p.length)]); },
+  trap: () => Array.from({ length: N }, (_, i) => i % 2 ? 0x8000 + rnd(0x7FFF) : rnd(0x8000)),
+};
+const toText = v => [v.slice(0, 10), v.slice(10)].map(r => r.join(", ")).join(",\n");
+function parse(text) {
+  const toks = text.split(/[\s,;]+/).filter(Boolean), out = [];
+  for (const t of toks) {
+    let v;
+    if (/^0x[0-9a-f]{1,}$/i.test(t)) v = parseInt(t.slice(2), 16);
+    else if (/^[0-9][0-9a-f]*h$/i.test(t)) v = parseInt(t.slice(0, -1), 16);
+    else if (/^\d+$/.test(t)) v = parseInt(t, 10);
+    else return { err: `"${t}" is not a number. Use decimal (4660), hex with an H suffix (1234H) or 0x1234. A hex value that starts with A–F needs a leading 0, as in MASM: 0F2A1H.` };
+    if (v > 65535) return { err: `"${t}" is ${v}, which does not fit in 16 bits. The largest unsigned word is 65535 (FFFFH).` };
+    out.push(v);
+  }
+  if (out.length !== N) return { err: `Found ${out.length} number${out.length === 1 ? "" : "s"}. ARR holds exactly 20 words.` };
+  return { v: out };
+}
+const dataIn = $("#dataIn"), msg = $("#dataMsg");
+function load(v, note) { data = v; dataIn.value = toText(v); msg.className = "msg"; msg.textContent = note; reset(); }
+function markPreset(p) { document.querySelectorAll("#presets .pill").forEach(b => b.setAttribute("aria-pressed", b.dataset.p === p)); }
+document.querySelectorAll("#presets .pill").forEach(b => b.onclick = () => {
+  markPreset(b.dataset.p);
+  load(PRESETS[b.dataset.p](), b.dataset.p === "sample" ? "The 20 values declared in ARR in BUBBLE.ASM." : `Loaded: ${b.textContent.toLowerCase()}.`);
+});
+$("#loadBtn").onclick = () => {
+  const r = parse(dataIn.value);
+  if (r.err) { msg.className = "msg err"; msg.textContent = r.err; return; }
+  markPreset(null); load(r.v, "Loaded your 20 numbers into ARR.");
+};
+
+buildListing();
+load(SAMPLE.slice(), "The 20 values declared in ARR in BUBBLE.ASM.");
+})();
+</script>

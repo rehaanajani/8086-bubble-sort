@@ -1,0 +1,24 @@
+ ==============================================================
+   BUBBLE SORT  :  20 UNSIGNED 16-BIT NUMBERS  (ASCENDING)
+   Intel 8086 Assembly                         MASM / TASM
+ ==============================================================
+
+  BEFORE SORTING
+   DEC : 62113    52 40000  4660 65535     0 32000 10000  1000 32768
+         43981     1 20000 50000    99 23130  5000 60000   255 12345
+   HEX : F2A1H 0034H 9C40H 1234H FFFFH 0000H 7D00H 2710H 03E8H 8000H
+         ABCDH 0001H 4E20H C350H 0063H 5A5AH 1388H EA60H 00FFH 3039H
+
+  AFTER SORTING (ASCENDING)
+   DEC :     0     1    52    99   255  1000  4660  5000 10000 12345
+         20000 23130 32000 32768 40000 43981 50000 60000 62113 65535
+   HEX : 0000H 0001H 0034H 0063H 00FFH 03E8H 1234H 1388H 2710H 3039H
+         4E20H 5A5AH 7D00H 8000H 9C40H ABCDH C350H EA60H F2A1H FFFFH
+
+  STATISTICS
+   Passes       :    15
+   Comparisons  :   180
+   Swaps        :    99
+   Verification : array is in ascending order
+
+  Press any key to exit...
