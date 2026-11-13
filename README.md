@@ -2,6 +2,8 @@
 
 **Aim:** Sort an array of twenty 16-bit unsigned numbers in ascending order using the Bubble Sort algorithm, in 8086 assembly language.
 
+**▶ [Open the interactive simulator](https://claude.ai/artifact/1Mt6dZRq9DkYkkEh6FxRCQ)**: step through the sort one instruction at a time in your browser.
+
 | Path | What it is |
 |---|---|
 | `src/BUBBLE.ASM` | The program. MASM / TASM / emu8086 syntax. |
@@ -185,7 +187,9 @@ Time is O(n²) in the worst and average case. Because of the early exit, it is O
 
 ## 5. Simulator
 
-Open `simulator/index.html` in a browser. It needs no install and no server.
+**Live version:** https://claude.ai/artifact/1Mt6dZRq9DkYkkEh6FxRCQ
+
+Or open `simulator/index.html` in a browser. It needs no install and no server.
 
 It executes the real `BUBBLE_SORT` instructions, at the real offsets with the real machine code, one at a time, and shows:
 
