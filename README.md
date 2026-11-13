@@ -2,7 +2,7 @@
 
 **Aim:** Sort an array of twenty 16-bit unsigned numbers in ascending order using the Bubble Sort algorithm, in 8086 assembly language.
 
-**▶ [Open the interactive simulator](https://claude.ai/artifact/1Mt6dZRq9DkYkkEh6FxRCQ)**: step through the sort one instruction at a time in your browser.
+**▶ [Open the interactive simulator](https://rehaanajani.github.io/8086-bubble-sort/simulator/)**: step through the sort one instruction at a time in your browser.
 
 | Path | What it is |
 |---|---|
@@ -187,7 +187,7 @@ Time is O(n²) in the worst and average case. Because of the early exit, it is O
 
 ## 5. Simulator
 
-**Live version:** https://claude.ai/artifact/1Mt6dZRq9DkYkkEh6FxRCQ
+**Live version:** https://rehaanajani.github.io/8086-bubble-sort/simulator/
 
 Or open `simulator/index.html` in a browser. It needs no install and no server.
 
